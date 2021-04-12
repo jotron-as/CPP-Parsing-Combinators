@@ -12,6 +12,11 @@ There are no dependencies for building as it is a single header. Simply run `mak
 
 You can build the demos with `make demo`
 
+## Usage
+```cpp
+#include <cpp_parser/parser.h>
+```
+
 ## Combinators and types
 For more info, consult the source. It's only one file and it isn't long.
 

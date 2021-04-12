@@ -5,7 +5,7 @@ all:
 	@echo Nothing to do
 
 install:
-	install -D -m 644 src/parser.h $(INCLUDES_DIR)/cpp_parser/parser.cpp
+	install -D -m 644 src/parser.h $(INCLUDES_DIR)/cpp_parser/parser.h
 
 demo: recursive network_proto
 
