@@ -108,7 +108,8 @@ std::optional<CLOption> result = Run(Option(some_string));
 ```
 
 ## Combinators and types
-For more info, consult the source. It's only one file and it isn't long.
+Below is a short reference. If it doesn't provide enough details,
+you can consult the source. It's only one file and it isn't long!
 
 ### Types and results
 
