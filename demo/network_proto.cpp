@@ -5,8 +5,6 @@
 #include <variant>
 #include <string>
 
-using namespace std;
-
 /* In this example we build a parser for a simple network protcol a bit like http
  * It is probably easier to read this from the main function and track it back
 */
@@ -24,7 +22,7 @@ enum STATE {Start, Stop};
 
 enum ECODE {Full};
 
-typedef variant<int, string, STATE, ECODE> Value;
+typedef std::variant<int, std::string, STATE, ECODE> Value;
 
 
 struct KeyValue {
@@ -35,13 +33,13 @@ struct KeyValue {
 
 struct Message {
     struct TagLine tag;
-    list<KeyValue> header;
-    string body;
+    std::list<KeyValue> header;
+    std::string body;
     bool hasBody;
 };
 
-ParserT<string> EOL = Lit("\r\n");
-ParserT<string> assign = Lit(": ");
+ParserT<std::string> EOL = Lit("\r\n");
+ParserT<std::string> assign = Lit(": ");
 
 auto mkContentLength = [](int i){
     Value v;
@@ -49,7 +47,7 @@ auto mkContentLength = [](int i){
     return (KeyValue){ContentLength, v};
 };
 
-auto mkContentType = [](string i){
+auto mkContentType = [](std::string i){
     Value v;
     v = i.data();
     return (KeyValue){ContentType, v};
@@ -67,14 +65,14 @@ auto mkErrorCode = [](ECODE i){
     return (KeyValue){ErrorCode, v};
 };
 
-auto mkUrl = [](string i){
+auto mkUrl = [](std::string i){
     Value v;
     v = i.data();
     return (KeyValue){URL, v};
 };
 
-ParserT<string> toEnd = [](string s){
-    ParserRet<string> ret;
+ParserT<std::string> toEnd = [](std::string s){
+    ParserRet<std::string> ret;
     int splitPoint = 0;
     for (char c : s) {
         if (c == '\r') break;
@@ -99,25 +97,25 @@ ParserT<STATE> parseState = Lit("Start") >> Const(Start)
 
 ParserT<ECODE> parseECode = Lit("FULL") >> Const(Full);
 
-ParserT<KeyValue> parseKV = ( fmap<int,      KeyValue>(mkContentLength,Lit("Content-Length") >> assign >> Natural)
-                            | fmap<string,   KeyValue>(mkContentType,  Lit("Content-Type")   >> assign >> toEnd)
-                            | fmap<STATE,    KeyValue>(mkState      ,  Lit("State")          >> assign >> parseState)
-                            | fmap<ECODE,    KeyValue>(mkErrorCode  ,  Lit("Error-Code")     >> assign >> parseECode)
-                            | fmap<string,   KeyValue>(mkUrl,          Lit("Url")            >> assign >> toEnd)
+ParserT<KeyValue> parseKV = ( fmap<int,         KeyValue>(mkContentLength,Lit("Content-Length") >> assign >> Natural)
+                            | fmap<std::string, KeyValue>(mkContentType,  Lit("Content-Type")   >> assign >> toEnd)
+                            | fmap<STATE,       KeyValue>(mkState      ,  Lit("State")          >> assign >> parseState)
+                            | fmap<ECODE,       KeyValue>(mkErrorCode  ,  Lit("Error-Code")     >> assign >> parseECode)
+                            | fmap<std::string, KeyValue>(mkUrl,          Lit("Url")            >> assign >> toEnd)
                             ) << EOL;
 
 ParserT<Many<KeyValue>> parseHeader = many(parseKV) << EOL;
 
 template<typename T>
-std::optional<T> findKV(list<KeyValue> header, KEY key)
+std::optional<T> findKV(std::list<KeyValue> header, KEY key)
 {
     for (auto kv : header) {
-        if (kv.key == key) return get<T>(kv.value);
+        if (kv.key == key) return std::get<T>(kv.value);
     }
     return {};
 }
 
-ParserT<Message> parseVMP = [](string s){
+ParserT<Message> parseVMP = [](std::string s){
     ParserRet<Message> ret;
 
     auto th = (parseTag & parseHeader)(s);
@@ -136,7 +134,7 @@ ParserT<Message> parseVMP = [](string s){
             break;
         }
     }
-    string newRem;
+    std::string newRem;
     if (cl != -1) {
         msg.body = rem.substr(0,cl);
         msg.hasBody = true;
@@ -155,12 +153,12 @@ int main() {
             "Hello World";
     auto ret = Run(parseVMP(msg));
     if (!ret.has_value()) exit(-1);
-    auto ty = findKV<string>(ret->header, ContentType);
+    auto ty = findKV<std::string>(ret->header, ContentType);
     auto cl = findKV<int>(ret->header, ContentLength);
     if (ty.has_value())
-        cout << "Content-Type: " << ty.value() << endl;
+        std::cout << "Content-Type: " << ty.value() << std::endl;
     if (cl.has_value())
-        cout << "Content-Length: " << cl.value() << endl;
-    cout << ret->body << endl;
+        std::cout << "Content-Length: " << cl.value() << std::endl;
+    std::cout << ret->body << std::endl;
     return 0;
 }
