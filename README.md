@@ -10,6 +10,8 @@ for the construction of fully fledged parsers in  a few lines of code. There are
 ## Installing
 There are no dependencies for building as it is a single header. Simply run `make install`
 
+You can build the demos with `make demo`
+
 ## Combinators and types
 For more info, consult the source. It's only one file and it isn't long.
 
