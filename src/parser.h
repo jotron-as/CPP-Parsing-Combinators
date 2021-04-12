@@ -247,15 +247,15 @@ ParserT<std::string> AnyLit = [](std::string s) {
     return ret;
 };
 
-ParserT<char> NumberC = Char('0') | Char('1') | Char('2')
-                      | Char('3') | Char('4') | Char('5')
-                      | Char('6') | Char('7') | Char('8')
-                      | Char('9');
+ParserT<char> DigitC = Char('0') | Char('1') | Char('2')
+                     | Char('3') | Char('4') | Char('5')
+                     | Char('6') | Char('7') | Char('8')
+                     | Char('9');
 auto char2Int = [](char c){
     return c - '0';
 };
 
-ParserT<int> Number = fmap<char,int>(char2Int, NumberC);
+ParserT<int> Digit = fmap<char,int>(char2Int, DigitC);
 
 auto mkInt = [](Many<int> ints){
     int rec = 0;
@@ -264,7 +264,10 @@ auto mkInt = [](Many<int> ints){
     return rec;
 };
 
-ParserT<int> Integer = fmap<Many<int>,int>(mkInt, many1(Number));
+ParserT<int> Natural = fmap<Many<int>,int>(mkInt, many1(Digit));
+
+ParserT<int> Integer = Char('-') >> fmap<int,int>([](int i){return -1 * i;}, Natural)
+                     | Natural;
 
 
 #endif

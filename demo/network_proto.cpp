@@ -90,7 +90,7 @@ ParserT<TagLine> parseTag = ( Lit("CONFIGURE") >> Const((TagLine){Configure, 0})
                             | Lit("ERROR")     >> Const((TagLine){Error,0})
                             | Lit("REQUEST")   >> Const((TagLine){Request,0})
                             | Lit("SETUP")     >> Const((TagLine){Setup,0})
-                            | fmap<int,TagLine>([](int i){return (TagLine){Responce, i};},Integer)
+                            | fmap<int,TagLine>([](int i){return (TagLine){Responce, i};},Natural)
                             ) << Lit(" XMP/1.0") << EOL;
 
 ParserT<STATE> parseState = Lit("Start") >> Const(Start)
@@ -99,7 +99,7 @@ ParserT<STATE> parseState = Lit("Start") >> Const(Start)
 
 ParserT<ECODE> parseECode = Lit("FULL") >> Const(Full);
 
-ParserT<KeyValue> parseKV = ( fmap<int,      KeyValue>(mkContentLength,Lit("Content-Length") >> assign >> Integer )
+ParserT<KeyValue> parseKV = ( fmap<int,      KeyValue>(mkContentLength,Lit("Content-Length") >> assign >> Natural)
                             | fmap<string,   KeyValue>(mkContentType,  Lit("Content-Type")   >> assign >> toEnd)
                             | fmap<STATE,    KeyValue>(mkState      ,  Lit("State")          >> assign >> parseState)
                             | fmap<ECODE,    KeyValue>(mkErrorCode  ,  Lit("Error-Code")     >> assign >> parseECode)
@@ -156,8 +156,11 @@ int main() {
     auto ret = Run(parseVMP(msg));
     if (!ret.has_value()) exit(-1);
     auto ty = findKV<string>(ret->header, ContentType);
+    auto cl = findKV<int>(ret->header, ContentLength);
     if (ty.has_value())
         cout << "Content-Type: " << ty.value() << endl;
+    if (cl.has_value())
+        cout << "Content-Length: " << cl.value() << endl;
     cout << ret->body << endl;
     return 0;
 }
