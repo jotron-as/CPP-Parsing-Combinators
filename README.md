@@ -7,7 +7,7 @@ for the construction of fully fledged parsers in  a few lines of code. There are
 - Performance hasn't been tested yet. Not much effort has been put into performance yet
 - It requires C++ 17
 
-The library is user LGPL-3.0. Because it is a header only library, this is functionally the same as a BSD licence.
+The library uses the LGPL-3.0 licence. Because it is a header only library, this is functionally the same as a BSD licence.
 For more info, see [here](http://eigen.tuxfamily.org/index.php?title=Licensing_FAQ&oldid=1117)
 
 ## Installing
@@ -15,9 +15,96 @@ There are no dependencies for building as it is a single header. Simply run `mak
 
 You can build the demos with `make demo`
 
-## Usage
+##  Quick Tutorial
+We are going to create a simple commandline parser.
+First we must include the header:
 ```cpp
 #include <cpp_parser/parser.h>
+```
+
+Next we want to define our parser. We have 4 different types of
+command we want to parse:
+- Short flags, e.g. `-f`
+- Short arguments, e.g. `-a arg` or `-aarg`
+- Long flags, e.g. `--flag`
+- Long arguments, e.g. `--argument arg` or `--argument=arg`
+
+Translating this to the library is quite easy. We will start with the short
+options:
+```cpp
+ParserT<char> ShortFlag = Char('-') >> AnyChar;
+
+ParserT<std::tuple<char,std::string>> ShortArg = ShortFlag & AnyLit
+                                               | (ShortFlag >> Char(' ')) & AnyLit
+                                               ;
+```
+The first line says that to parse a short flag, we parse a '-', discard it
+and then parse any character. To parse a short argument, we parse a short flag
+and then any string or we do the same but with a space between the short flag and the string.
+The `&` combinator saves the results of the parsers of either side in a tuple.
+I could have written the last line in a number of different ways, my favorite being:
+
+```cpp
+auto ShortArg = ShortFlag & ((Char(' ') | True) >> AnyLit)
+```
+But it essentially means the same thing.
+
+We now will do the same for long arguments:
+```cpp
+ParserT<std::string> LongFlag = Lit("--") >> AnyLit
+
+ParserT<std::tuple<std::string,std::string>> LongArg =
+  LongFlag & ((Char(' ') | Char('=')) >> AnyLit)
+```
+It works in the same way as the one before but with a double dash and
+`AnyLit` instead of `AnyChar`.
+
+To simplify the next task, we are going to make a datatype that any flag or
+arg can be placed in:
+```cpp
+struct CLOption {
+  std::string name;
+  bool hasArg;
+  std::string arg;
+};
+```
+We shall now make some functions that convert the output of the parsers to
+this type:
+```cpp
+auto mkSFlag = [](char c){
+  return (CLOption){std::string(1,c) ,false,""};
+};
+
+auto mkSArg = [](std::tuple<char,std::string>t){
+  return (CLOption){std::string(1,std::get<0>(t)), true, std::get<1>(t)};
+};
+
+auto mkLFlag = [](std::string s) {
+  return (CLOption){s, false, ""};
+};
+
+auto mkLArg = [](std::tuple<std::string,std::string>t) {
+  return (CLOption){std::get<0>(t), true, std::get<1>(t)};
+};
+```
+
+Next we will use `fmap` to convert all the parsers to parser that output
+something of type `CLOption` and join them together.
+```cpp
+
+auto Option = fmap<std::tuple<std::string,std::string>,CLOption>(mkLArg, LongArg)
+            | fmap<std::string,CLOption>(mkLFlag)(mkLFlag, LongFlag)
+            | fmap<std::tuple<char,std::string>,CLOption>(mkSArg, ShortArg)
+            | fmap<char,CLOption>(mkSFlag, ShortFlag)
+            ;
+```
+Now `Option` is our finished parser! But what does that mean? `Option` is
+a function that takes a string as an input and outputs something of type
+`ParserRet<T>`. Luckily, instead of digging into this type, you can use the parser
+like this:
+
+```cpp
+std::optional<CLOption> result = Run(Option(some_string));
 ```
 
 ## Combinators and types
