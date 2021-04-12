@@ -206,7 +206,7 @@ ParserT<std::string> Lit(std::string lit) {
     if (lit.empty())
         return Replace(True,lit);
     auto p = Char(lit[0]);
-    for(int i = 1; static_cast<uint>(i) < lit.length(); i++)
+    for(int i = 1; static_cast<unsigned int>(i) < lit.length(); i++)
         p = p >> Char(lit[i]);
     return Replace(p,lit);
 }
