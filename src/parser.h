@@ -5,17 +5,18 @@
 #include <tuple>
 #include <list>
 #include <string>
+#include <string_view>
 #include <optional>
 
 #define UNUSED(x) (void)(x)
 
 // What a parser returns
 template<typename T>
-using ParserRet = std::optional<std::tuple<T, std::string>>;
+using ParserRet = std::optional<std::tuple<T, std::string_view>>;
 
 // What a parser is
 template<typename T>
-using ParserT = std::function<ParserRet<T>(std::string)>;
+using ParserT = std::function<ParserRet<T>(std::string_view)>;
 
 // Get value from parser. If it failed, we provide a default value
 template<typename T>
@@ -37,7 +38,7 @@ std::optional<T> Run(ParserRet<T> result) {
 // A << B means run parser A, run parser B, forget the result of B
 template<typename A, typename B>
 ParserT<A> operator<< (const ParserT<A>& l, const ParserT<B>& r) {
-    ParserT<A> func = [l,r](std::string s){
+    ParserT<A> func = [l,r](std::string_view s){
         ParserRet<A> ret;
         ParserRet<A> temp = l(s);
         if (!temp.has_value())
@@ -56,7 +57,7 @@ ParserT<A> operator<< (const ParserT<A>& l, const ParserT<B>& r) {
 // A >> B means run parser A, forget result, run parser B
 template<typename A, typename B>
 ParserT<B> operator>> (const ParserT<A>& l, const ParserT<B>& r) {
-    ParserT<B> func = [l,r](std::string s){
+    ParserT<B> func = [l,r](std::string_view s){
         ParserRet<B> ret;
         ParserRet<A> temp = l(s);
         if (!temp.has_value())
@@ -71,7 +72,7 @@ ParserT<B> operator>> (const ParserT<A>& l, const ParserT<B>& r) {
 template<typename T>
 ParserT<T> operator| (const ParserT<T>& l, const ParserT<T>& r)
 {
-    return [l, r](std::string s) {
+    return [l, r](std::string_view s) {
         ParserRet<T> ret;
         ret = l(s);
         if (ret.has_value()) return ret;
@@ -83,7 +84,7 @@ ParserT<T> operator| (const ParserT<T>& l, const ParserT<T>& r)
 template<typename A, typename B>
 ParserT<std::tuple<A,B>> operator& (const ParserT<A>& l, const ParserT<B>& r)
 {
-    return [l, r](std::string s) {
+    return [l, r](std::string_view s) {
         ParserRet<std::tuple<A,B>> ret = {};
         auto ret1 = l(s);
         if (!ret1.has_value())
@@ -101,7 +102,7 @@ ParserT<std::tuple<A,B>> operator& (const ParserT<A>& l, const ParserT<B>& r)
 // fmap(f,p) creates a parse from p, but run function f on result
 template<typename A, typename B>
 ParserT<B> fmap(std::function<B(A)> f, const ParserT<A>& r) {
-    return [f,r](std::string s){
+    return [f,r](std::string_view s){
         ParserRet<B> ret = {};
         auto t = r(s);
         if (t.has_value()) {
@@ -118,7 +119,7 @@ using Many = std::list<T>;
 // Parse as much as we can with parser p
 template<typename T>
 ParserT<Many<T>> many(const ParserT<T> & p) {
-    return [p](std::string s) {
+    return [p](std::string_view s) {
         ParserRet<Many<T>> ret = {};
         Many<T> parsed;
         while(true) {
@@ -138,7 +139,7 @@ ParserT<Many<T>> many(const ParserT<T> & p) {
 // same as many but fails instead of empty list
 template<typename T>
 ParserT<Many<T>> many1(const ParserT<T> & p) {
-    return [p](std::string s) {
+    return [p](std::string_view s) {
         ParserRet<Many<T>> ret = {};
         auto t = many(p)(s);
         if (!t.has_value()) return ret;
@@ -161,13 +162,13 @@ ParserT<T> Replace(const ParserT<A>& p, T tag) {
 }
 
 // Fail
-ParserT<bool> False = [](std::string){
+ParserT<bool> False = [](std::string_view){
     ParserRet<bool> ret = {};
     return ret;
 };
 
 // True
-ParserT<bool> True = [](std::string s){
+ParserT<bool> True = [](std::string_view s){
     ParserRet<bool> ret;
     ret = std::make_tuple(true, s);
     return ret;
@@ -175,14 +176,14 @@ ParserT<bool> True = [](std::string s){
 
 template<typename T>
 ParserT<bool> Not(const ParserT<T>& p) {
-    return [p](std::string s) {
+    return [p](std::string_view s) {
         return (p(s).has_value() ? False(s) : True(s));
     };
 }
 
 template<typename T>
 ParserT<T> Const(T t){
-    return [t](std::string s) {
+    return [t](std::string_view s) {
     ParserRet<T> ret;
     ret = std::make_tuple(t,s);
     return ret;
@@ -191,7 +192,7 @@ ParserT<T> Const(T t){
 
 // Parse the specific character c
 ParserT<char> Char(char c) {
-    return [c](std::string s) {
+    return [c](std::string_view s) {
         ParserRet<char> ret = {};
         if (s.length() == 0)
             return ret;
@@ -202,17 +203,17 @@ ParserT<char> Char(char c) {
 }
 
 // Parse the specific string lit
-ParserT<std::string> Lit(std::string lit) {
+ParserT<std::string> Lit(std::string_view lit) {
     if (lit.empty())
-        return Replace(True,lit);
+        return Const(std::string(lit));
     auto p = Char(lit[0]);
     for(int i = 1; static_cast<unsigned int>(i) < lit.length(); i++)
         p = p >> Char(lit[i]);
-    return Replace(p,lit);
+    return Replace(p,std::string(lit));
 }
 
 // Parse any character
-ParserT<char> AnyChar = [](std::string s) {
+ParserT<char> AnyChar = [](std::string_view s) {
     ParserRet<char> ret = {};
     if (s.empty()) return ret;
     ret = std::make_tuple(s[0],s.substr(1, s.size()-1));
@@ -220,7 +221,7 @@ ParserT<char> AnyChar = [](std::string s) {
 };
 
 // Parse any character that is a letter
-ParserT<char> Alpha = [](std::string s) {
+ParserT<char> Alpha = [](std::string_view s) {
     ParserRet<char> ret = {};
     if (s.length() == 0)
         return ret;
@@ -235,7 +236,7 @@ ParserT<char> Special = Char(' ') | Char('\n') | Char('\t')
                       | Char('=') | Char('-');
 
 // Parse any string (that isn't a special character)
-ParserT<std::string> AnyLit = [](std::string s) {
+ParserT<std::string> AnyLit = [](std::string_view s) {
     ParserRet<std::string> ret = {};
     auto r1 = many1(Not(Special) >> AnyChar)(s);
     if (!r1.has_value()) return ret;

@@ -3,6 +3,7 @@
 #include <optional>
 #include <tuple>
 #include <string>
+#include <string_view>
 
 /* This is a seriously ugly demo of recursive parsing rules!
  * If I work out how to get this kind of recursion working without long captures
@@ -17,10 +18,10 @@ int main() {
     // ss = skip space
     ParserT<Many<char>> ss = many(Char(' '));
 
-    auto Mult = [&Factor,&Term,&ss](std::string s){
+    auto Mult = [&Factor,&Term,&ss](std::string_view s){
         return ((Factor << ss << Char('*')) & (ss >> Term))(s);};
 
-    auto Plus = [&Term,&Expr,&ss](std::string s){
+    auto Plus = [&Term,&Expr,&ss](std::string_view s){
         return ((Term << ss << Char('+')) & (ss >> Expr))(s);};
 
     auto mult = [](std::tuple<int,int> t) {
@@ -31,19 +32,19 @@ int main() {
       return std::get<0>(t) + std::get<1>(t);
     };
 
-  Factor = [&Expr,&ss](std::string s){
+  Factor = [&Expr,&ss](std::string_view s){
       return ( Char('(') >> ss >> Expr << ss << Char(')')
              | Integer
              )(s);
   };
   
-  Term = [&Factor, &mult, Mult](std::string s) {
+  Term = [&Factor, &mult, Mult](std::string_view s) {
       return ( fmap<std::tuple<int,int>,int>(mult, Mult)
              | Factor
              )(s);
   };
 
-  Expr = [&plus,&Plus,&Term](std::string s) {
+  Expr = [&plus,&Plus,&Term](std::string_view s) {
       return (fmap<std::tuple<int,int>,int>(plus, Plus)
        | Term
        )(s);
@@ -57,7 +58,8 @@ int main() {
   std::cout << "Enter and expression and it shall be evaluated" << std::endl;
 
   for (std::string line; std::getline(std::cin, line);) {
-    auto x = Run(Expr(line));
+    std::string_view sv {line};
+    auto x = Run(Expr(sv));
     if (!x.has_value()) std::cout << "Some Error" << std::endl;
     else std::cout << "--> " << x.value() << std::endl;
   }

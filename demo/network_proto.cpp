@@ -71,14 +71,14 @@ auto mkUrl = [](std::string i){
     return (KeyValue){URL, v};
 };
 
-ParserT<std::string> toEnd = [](std::string s){
+ParserT<std::string> toEnd = [](std::string_view s){
     ParserRet<std::string> ret;
     int splitPoint = 0;
     for (char c : s) {
         if (c == '\r') break;
         splitPoint++;
     }
-    ret = make_tuple(s.substr(0,splitPoint),s.substr(splitPoint,s.length() - splitPoint));
+    ret = make_tuple(std::string(s.substr(0,splitPoint)),s.substr(splitPoint,s.length() - splitPoint));
     return ret;
 };
 
@@ -115,7 +115,7 @@ std::optional<T> findKV(std::list<KeyValue> header, KEY key)
     return {};
 }
 
-ParserT<Message> parseVMP = [](std::string s){
+ParserT<Message> parseXMP = [](std::string_view s){
     ParserRet<Message> ret;
 
     auto th = (parseTag & parseHeader)(s);
@@ -123,11 +123,7 @@ ParserT<Message> parseVMP = [](std::string s){
     auto [value,rem] = th.value();
     auto[tag,header] = value;
     int cl = -1;
-    struct Message msg;
-    msg.tag     = tag;
-    msg.header  = header;
-    msg.body    = "";
-    msg.hasBody = false;
+    Message msg {tag, header, "", findKV<int>(header, ContentLength).value_or(0) > 0};
     for (auto kv : header) {
         if (kv.key == ContentLength) {
             cl = std::get<int>(kv.value);
@@ -145,13 +141,14 @@ ParserT<Message> parseVMP = [](std::string s){
 };
 
 int main() {
-    const char* msg =
+    const std::string msg =
             "CONFIGURE XMP/1.0\r\n"
             "Content-Type: Text\r\n"
             "Content-Length: 11\r\n"
             "\r\n"
             "Hello World";
-    auto ret = Run(parseVMP(msg));
+    std::string_view sv{msg};
+    auto ret = Run(parseXMP(sv));
     if (!ret.has_value()) exit(-1);
     auto ty = findKV<std::string>(ret->header, ContentType);
     auto cl = findKV<int>(ret->header, ContentLength);
