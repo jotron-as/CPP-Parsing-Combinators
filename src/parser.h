@@ -31,7 +31,7 @@ template<typename T>
 std::optional<T> Run(ParserRet<T> result) {
     if (!result.has_value())
         return {};
-    auto[res, rest] = result.value();
+    auto[res, rest] = result.value(); UNUSED(rest);
     return res;
 }
 
