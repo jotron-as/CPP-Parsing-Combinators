@@ -10,25 +10,20 @@
 */
 
 enum TAG {Configure, Status, Command, Error, Request, Responce, Setup};
+enum KEY { ContentLength, ContentType, State, ErrorCode, URL};
+enum STATE {Start, Stop};
+enum ECODE {Full};
 
 struct TagLine {
     TAG tag;
     int statusCode;
 };
 
-enum KEY { ContentLength, ContentType, State, ErrorCode, URL};
-
-enum STATE {Start, Stop};
-
-enum ECODE {Full};
-
 typedef std::variant<int, std::string, STATE, ECODE> Value;
-
 
 struct KeyValue {
     KEY key;
     Value value;
-
 };
 
 struct Message {
@@ -42,36 +37,31 @@ ParserT<std::string> EOL = Lit("\r\n");
 ParserT<std::string> assign = Lit(": ");
 
 auto mkContentLength = [](int i){
-    Value v;
-    v = i;
+    Value v; v = i;
     return (KeyValue){ContentLength, v};
 };
 
 auto mkContentType = [](std::string i){
-    Value v;
-    v = i.data();
+    Value v; v = i;
     return (KeyValue){ContentType, v};
 };
 
 auto mkState = [](STATE i){
-    Value v;
-    v = i;
+    Value v; v = i;
     return (KeyValue){State, v};
 };
 
 auto mkErrorCode = [](ECODE i){
-    Value v;
-    v = i;
+    Value v; v = i;
     return (KeyValue){ErrorCode, v};
 };
 
 auto mkUrl = [](std::string i){
-    Value v;
-    v = i.data();
+    Value v; v = i;
     return (KeyValue){URL, v};
 };
 
-auto toEnd = takeWhile([](char c){ return c != '\r';});
+auto toEnd = TakeWhile([](char c){ return c != '\r';});
 
 ParserT<TagLine> parseTag = ( Lit("CONFIGURE") >> Const((TagLine){Configure, 0})
                             | Lit("STATUS")    >> Const((TagLine){Status,0})
@@ -106,29 +96,18 @@ std::optional<T> findKV(std::list<KeyValue> header, KEY key)
     return {};
 }
 
-ParserT<Message> parseXMP = [](std::string_view s){
-    ParserRet<Message> ret;
-
-    auto th = (parseTag & parseHeader)(s);
-    if (!th.has_value()) return ret;
-    auto [value,rem] = th.value();
-    auto[tag,header] = value;
-    int cl = -1;
-    Message msg {tag, header, "", findKV<int>(header, ContentLength).value_or(0) > 0};
-    for (auto kv : header) {
-        if (kv.key == ContentLength) {
-            cl = std::get<int>(kv.value);
-            break;
-        }
-    }
-    std::string newRem;
-    if (cl != -1) {
-        msg.body = rem.substr(0,cl);
-        msg.hasBody = true;
-        newRem   = rem.substr(cl, rem.length() - cl);
-    } else newRem = rem;
-    ret = make_tuple(msg, newRem);
-    return ret;
+ParserT<Message> parseXMP = (parseTag & parseHeader) >>= (M<std::tuple<TagLine,Many<KeyValue>>,Message>)[](auto t) {
+  auto [tag, header] = t;
+  int cl = findKV<int>(header, ContentLength).value_or(0);
+  if (cl > 0)
+    return Take(cl) >>= (M<std::string,Message>)[=](auto body){
+      Message msg {tag, header, body, true};
+      return Const(msg);
+    };
+  else {
+    Message msg {tag, header, "", false};
+    return Const(msg);
+  }
 };
 
 int main() {

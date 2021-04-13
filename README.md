@@ -99,12 +99,12 @@ auto Option = fmap<std::tuple<std::string,std::string>,CLOption>(mkLArg, LongArg
             ;
 ```
 Now `Option` is our finished parser! But what does that mean? `Option` is
-a function that takes a string as an input and outputs something of type
+a function that takes a `string_view` as an input and outputs something of type
 `ParserRet<T>`. Luckily, instead of digging into this type, you can use the parser
 like this:
 
 ```cpp
-std::optional<CLOption> result = Run(Option(some_string));
+std::optional<CLOption> result = Run(Option(some_string_view));
 ```
 
 ## Combinators and types
@@ -116,7 +116,7 @@ you can consult the source. It's only one file and it isn't long!
 #### ParserRet
 This is the return type for a parser unit.
 ```cpp
-parserRet<T> = std::optional<std::tuple<T, std::string>>
+parserRet<T> = std::optional<std::tuple<T, std::string_view>>
 ```
 Optional means that a parser can fail. The first element of the tuple is what was parsed.
 The second tuple is the part of the string that hasn't been consumed.
@@ -124,7 +124,7 @@ The second tuple is the part of the string that hasn't been consumed.
 #### ParserT
 The parser type:
 ```cpp
-ParserT<T> = std::function<ParserRet<T>(std::string)>;
+ParserT<T> = std::function<ParserRet<T>(std::string_view)>;
 ```
 A parser is a function from a string to a `ParserRet`
 
@@ -132,6 +132,12 @@ A parser is a function from a string to a `ParserRet`
 Just an alias for a list
 ```cpp
 Many<T> = std::list<T>;
+```
+#### M
+This is a helper for when using monadic bind. You need to cast lambdas in order for the code to compile. Lambda types are long
+and so this helper provides some relief!
+```cpp
+M<A,B> = std::function<ParserT<B>(A)>
 ```
 
 #### Get
@@ -141,7 +147,7 @@ T Get(ParserRet<T> result, T def)
 ```
 
 #### Run
-Like `Get` but returns optional values instead of a default value when handeling failue:
+Like `Get` but returns optional values instead of a default value when handling failure:
 ```cpp
 std::optional<T> Run(ParserRet<T> result)
 ```
@@ -155,13 +161,13 @@ return the result of parser A.
 ```cpp
 ParserT<A> operator<< (const ParserT<A>& l, const ParserT<B>& r)
 ```
-Consider the example that parsers an integer forllowed by a space:
+Consider the example that parsers an integer followed by a space:
 ```cpp
 Parser<Int> intSpace = Integer << Char(' ');
 ```
 
 #### A >> B
-`A >> B` creates a parser out of the parsers `A` and `B`. The behaviour of the new parser is equivilent
+`A >> B` creates a parser out of the parsers `A` and `B`. The behaviour of the new parser is equivalent
 to running `A`. If it fails, we fail. Else we discard the result and run parser B.
 ```cpp
 ParserT<B> operator>> (const ParserT<A>& l, const ParserT<B>& r)
@@ -181,6 +187,13 @@ both in a tuple.
 ```cpp
 ParserT<std::tuple<A,B>> operator& (const ParserT<A>& l, const ParserT<B>& r)
 ```
+
+#### >>= (Monadic bind)
+Useful way of constructing complex parsers without the need to extract the raw tuples as you go along!
+```cpp
+ParserT<B> operator>>= (ParserT<A> xm, M<A,B> f)
+```
+See `network_proto.cpp` for an example.
 
 ### Modifying Parsers
 #### fmap
@@ -239,7 +252,7 @@ ParserT<bool> False
 #### True
 Parser that always succeeds
 ```cpp
-ParserT<bool> True = [](std::string s)
+ParserT<bool> True
 ```
 
 #### Not
@@ -288,6 +301,24 @@ ParserT<char> Special
 Any String that doesn't contain special
 ```cpp
 ParserT<std::string> AnyLit
+```
+
+#### Satisfy
+Takes a function, `pred`, as input that takes in a `char` and returns a `bool`. It parses the char `c` iff `pred(c) == true`
+```cpp
+ParserT<char> Satisfy(std::function<bool(char)> pred)
+```
+
+#### TakeWhile
+Takes a function, `pred`, as input that takes in a `char` and returns a `bool`. It consumes the input string while `pred(s[i]) == true`
+```cpp
+ParserT<std::string> TakeWhile(std::function<bool(char)> pred)
+```
+
+#### Take
+Takes an integer length as input. Consumes that length of string.
+```cpp
+ParserT<std::string> Take(int len)
 ```
 
 #### DigitC

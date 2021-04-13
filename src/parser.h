@@ -113,6 +113,22 @@ ParserT<B> fmap(std::function<B(A)> f, const ParserT<A>& r) {
     };
 }
 
+template<typename A, typename B>
+using M = std::function<ParserT<B>(A)>;
+
+template<typename A, typename B>
+ParserT<B> operator>>= (ParserT<A> xm, M<A,B> f) {
+  return [xm,f](std::string_view s) {
+    ParserRet<B> ret = {};
+    auto x = xm(s);
+    if (!x.has_value()) return ret;
+    auto [parsed,rest] = x.value();
+    ParserT<B> new_parser = f(parsed);
+    ret = new_parser(rest);
+    return ret;
+  };
+}
+
 template<typename T>
 using Many = std::list<T>;
 
@@ -248,7 +264,7 @@ ParserT<std::string> AnyLit = [](std::string_view s) {
     return ret;
 };
 
-ParserT<char> satisfy(std::function<bool(char)> pred) {
+ParserT<char> Satisfy(std::function<bool(char)> pred) {
   return [pred](std::string_view s) {
     ParserRet<char> ret = {};
     char c = s[0];
@@ -258,16 +274,22 @@ ParserT<char> satisfy(std::function<bool(char)> pred) {
   };
 }
 
-ParserT<std::string> takeWhile(std::function<bool(char)> pred) {
+ParserT<std::string> TakeWhile(std::function<bool(char)> pred) {
   return [pred](std::string_view s) {
     ParserRet<std::string> ret = {};
-    auto result = many(satisfy(pred))(s);
+    auto result = many(Satisfy(pred))(s);
     auto [str, rest] = result.value();
     if (!result.has_value()) return ret;
     int len = str.size();
     ret = std::make_tuple(std::string(s.substr(0,len)), rest);
     return ret;
   };
+}
+
+ParserT<std::string> Take(int len) {
+  int i = len;
+  auto pred = [i](char) mutable -> bool {i--; return i >= 0;};
+  return TakeWhile(pred);
 }
 
 ParserT<char> DigitC = Char('0') | Char('1') | Char('2')
