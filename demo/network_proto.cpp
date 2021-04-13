@@ -71,16 +71,7 @@ auto mkUrl = [](std::string i){
     return (KeyValue){URL, v};
 };
 
-ParserT<std::string> toEnd = [](std::string_view s){
-    ParserRet<std::string> ret;
-    int splitPoint = 0;
-    for (char c : s) {
-        if (c == '\r') break;
-        splitPoint++;
-    }
-    ret = make_tuple(std::string(s.substr(0,splitPoint)),s.substr(splitPoint,s.length() - splitPoint));
-    return ret;
-};
+auto toEnd = takeWhile([](char c){ return c != '\r';});
 
 ParserT<TagLine> parseTag = ( Lit("CONFIGURE") >> Const((TagLine){Configure, 0})
                             | Lit("STATUS")    >> Const((TagLine){Status,0})

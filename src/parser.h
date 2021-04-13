@@ -248,6 +248,28 @@ ParserT<std::string> AnyLit = [](std::string_view s) {
     return ret;
 };
 
+ParserT<char> satisfy(std::function<bool(char)> pred) {
+  return [pred](std::string_view s) {
+    ParserRet<char> ret = {};
+    char c = s[0];
+    if (!pred(c)) return ret;
+    ret = std::make_tuple(c,s.substr(1, s.size()-1));
+    return ret;
+  };
+}
+
+ParserT<std::string> takeWhile(std::function<bool(char)> pred) {
+  return [pred](std::string_view s) {
+    ParserRet<std::string> ret = {};
+    auto result = many(satisfy(pred))(s);
+    auto [str, rest] = result.value();
+    if (!result.has_value()) return ret;
+    int len = str.size();
+    ret = std::make_tuple(std::string(s.substr(0,len)), rest);
+    return ret;
+  };
+}
+
 ParserT<char> DigitC = Char('0') | Char('1') | Char('2')
                      | Char('3') | Char('4') | Char('5')
                      | Char('6') | Char('7') | Char('8')
