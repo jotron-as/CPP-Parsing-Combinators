@@ -267,6 +267,7 @@ ParserT<std::string> AnyLit = [](std::string_view s) {
 ParserT<char> Satisfy(std::function<bool(char)> pred) {
   return [pred](std::string_view s) {
     ParserRet<char> ret = {};
+    if (s.size() == 0) return ret;
     char c = s[0];
     if (!pred(c)) return ret;
     ret = std::make_tuple(c,s.substr(1, s.size()-1));
