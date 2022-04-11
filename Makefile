@@ -2,13 +2,13 @@ TARGET=libparser.so
 PREFIX=/usr/local
 INCLUDES_DIR=$(PREFIX)/include
 LIB_DIR=$(PREFIX)/lib
-CC=gcc
+CPP=g++
 STD=c++17
 
 all: $(TARGET)
 
 $(TARGET): src/parser.cpp
-	gcc -std=$(STD) -shared -fpic -o $@ $^
+	$(CPP) -std=$(STD) -shared -fpic -o $@ $^
 
 install: install-header $(LIB_DIR)/$(TARGET)
 
@@ -24,7 +24,7 @@ demo: recursive network_proto
 
 % : demo/%.cpp
 	mkdir -p bin
-	g++ -o bin/$@ -std=$(STD) $^ -L. -lparser -Wl,-rpath=.
+	$(CPP) -o bin/$@ -std=$(STD) $^ -L. -lparser -Wl,-rpath=.
 
 clean:
 	rm -fr bin *.so
