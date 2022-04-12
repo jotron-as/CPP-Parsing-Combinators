@@ -7,11 +7,24 @@ for the construction of fully fledged parsers in  a few lines of code. There are
 - Performance hasn't been tested yet. Not much effort has been put into performance yet
 - It requires C++ 17
 
-The library uses the LGPL-3.0 licence. Because it is a header only library, this is functionally the same as a BSD licence.
+The library uses the LGPL-3.0 licence. The library can be used as a header only library which makes the functionality
+of LGPL the same as a BSD licence.
 For more info, see [here](http://eigen.tuxfamily.org/index.php?title=Licensing_FAQ&oldid=1117)
 
-## Installing
-There are no dependencies for building as it is a single header. Simply run `make install`
+## Installing Full Library
+`make && sudo make install`
+
+When building, don't forget to add `-lparser` to your compiler involcation!
+
+## Installing Header Only
+`make install-header`. If this is how you intend on using the library,
+you must include the library with:
+```cpp
+#define HEADER_ONLY
+#include <cpp_parser/parser.h>
+// Optionally:
+#undef  HEADER_ONLY
+```
 
 You can build the demos with `make demo`
 
