@@ -328,6 +328,9 @@ Takes a function, `pred`, as input that takes in a `char` and returns a `bool`. 
 ParserT<std::string> TakeWhile(std::function<bool(char)> pred)
 ```
 
+### Take1While
+Same as `TakeWhile` but fails if the result is of length 0
+
 #### Take
 Takes an integer length as input. Consumes that length of string.
 ```cpp

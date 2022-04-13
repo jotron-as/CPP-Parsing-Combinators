@@ -224,6 +224,8 @@ ParserT<char> Satisfy(std::function<bool(char)> pred);
 
 ParserT<std::string> TakeWhile(std::function<bool(char)> pred);
 
+ParserT<std::string> Take1While(std::function<bool(char)> pred);
+
 ParserT<std::string> Take(int len);
 
 extern ParserT<int> Digit;

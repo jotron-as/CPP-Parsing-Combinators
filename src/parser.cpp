@@ -91,6 +91,21 @@ ParserT<std::string> TakeWhile(std::function<bool(char)> pred) {
   };
 }
 
+
+ParserT<std::string> Take1While(std::function<bool(char)> pred) {
+  return [pred](std::string_view s) {
+    ParserRet<std::string> ret = {};
+    auto result = many(Satisfy(pred))(s);
+    if (!result.has_value()) return ret;
+    auto [str, rest] = result.value();
+    int len = str.size();
+    if (len == 0) return ret;
+    ret = std::make_tuple(std::string(s.substr(0,len)), rest);
+    return ret;
+  };
+}
+
+
 ParserT<std::string> Take(int len) {
   int i = len;
   auto pred = [i](char) mutable -> bool {i--; return i >= 0;};
