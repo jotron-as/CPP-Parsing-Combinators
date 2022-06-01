@@ -117,7 +117,7 @@ template<typename A, typename B>
 using M = std::function<ParserT<B>(A)>;
 
 template<typename A, typename B>
-ParserT<B> operator>>= (ParserT<A> xm, M<A,B> f) {
+ParserT<B> operator>>= (const ParserT<A> &xm, M<A,B> f) {
   return [xm,f](std::string_view s) {
     ParserRet<B> ret = {};
     auto x = xm(s);
@@ -143,8 +143,8 @@ ParserT<Many<T>> many(const ParserT<T> & p) {
             if (!innerRet.has_value()) {
                 break;
             }
-            auto[p,r] = innerRet.value();
-            parsed.push_back(p);
+            auto[q,r] = innerRet.value();
+            parsed.push_back(q);
             s = r;
         }
         ret = std::make_tuple(parsed, s);
@@ -177,15 +177,16 @@ ParserT<T> Replace(const ParserT<A>& p, T tag) {
     return fmap<A, T>([tag](A){return tag;}, p);
 }
 
-#ifndef HEADER_ONLY
+inline ParserT<bool> False = [](std::string_view){
+    ParserRet<bool> ret = {};
+    return ret;
+};
 
-// Fail
-extern ParserT<bool> False;
-
-// True
-extern ParserT<bool> True;
-
-#endif
+inline ParserT<bool> True = [](std::string_view s){
+    ParserRet<bool> ret;
+    ret = std::make_tuple(true, s);
+    return ret;
+};
 
 template<typename T>
 ParserT<bool> Not(const ParserT<T>& p) {
@@ -211,27 +212,77 @@ ParserT<char> Char(char c);
 // Parse the specific string lit
 ParserT<std::string> Lit(std::string_view lit);
 
+#endif
+
 // Parse any character
-extern ParserT<char> AnyChar;
+inline ParserT<char> AnyChar = [](std::string_view s) {
+    ParserRet<char> ret = {};
+    if (s.empty()) return ret;
+    ret = std::make_tuple(s[0],s.substr(1, s.size()-1));
+    return ret;
+};
 
 // Parse any character that is a letter
-extern ParserT<char> Alpha;
+inline ParserT<char> Alpha = [](std::string_view s) {
+    ParserRet<char> ret = {};
+    if (s.length() == 0)
+        return ret;
+    if (!isalpha(s[0]) || s[0] == ' ')
+        return ret;
+    char c = s[0];
+    ret = std::make_tuple(c,s.substr(1, s.size()-1));
+    return ret;
+};
+
+inline ParserT<char> Special = Char(' ') | Char('\n') | Char('\t')
+                      | Char('=') | Char('-');
+
 
 // Parse any string (that isn't a special character)
-extern ParserT<std::string> AnyLit;
+inline ParserT<std::string> AnyLit = [](std::string_view s) {
+    ParserRet<std::string> ret = {};
+    auto r1 = many1(Not(Special) >> AnyChar)(s);
+    if (!r1.has_value()) return ret;
+    auto[listC, r] = r1.value();
+    std::string str(listC.size(), '\0');
+    int i = 0;
+    for(char c : listC) str[i++] = c;
+    ret = std::make_tuple(str,r);
+    return ret;
+};
 
+
+#ifndef HEADER_ONLY
 ParserT<char> Satisfy(std::function<bool(char)> pred);
 
 ParserT<std::string> TakeWhile(std::function<bool(char)> pred);
 
+ParserT<std::string> Take1While(std::function<bool(char)> pred);
+
 ParserT<std::string> Take(int len);
-
-extern ParserT<int> Digit;
-
-extern ParserT<int> Natural;
-
-extern ParserT<int> Integer;
-
 #endif
+
+inline ParserT<char> DigitC = Char('0') | Char('1') | Char('2')
+                     | Char('3') | Char('4') | Char('5')
+                     | Char('6') | Char('7') | Char('8')
+                     | Char('9');
+inline auto char2Int = [](char c){
+    return c - '0';
+};
+
+inline ParserT<int> Digit = fmap<char,int>(char2Int, DigitC);
+
+inline auto mkInt = [](Many<int> ints){
+    int rec = 0;
+    for(int i : ints)
+        rec = (10 * rec) + i;
+    return rec;
+};
+
+
+inline ParserT<int> Natural = fmap<Many<int>,int>(mkInt, many1(Digit));
+
+inline ParserT<int> Integer = Char('-') >> fmap<int,int>([](int i){return -1 * i;}, Natural)
+                     | Natural;
 
 #endif
